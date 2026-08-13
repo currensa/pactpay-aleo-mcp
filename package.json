@@ -1,0 +1,22 @@
+{
+  "name": "@pactpay/aleo-mcp",
+  "version": "0.1.0",
+  "description": "PactPay Aleo MCP server — privacy-preserving payroll on Aleo via Model Context Protocol",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pactpay-aleo-mcp": "src/index.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
