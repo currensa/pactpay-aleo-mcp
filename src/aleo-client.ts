@@ -51,6 +51,20 @@ export class AleoClient {
     return this.get(`/${this.network}/block/${encodeURIComponent(heightOrHash)}`);
   }
 
+  blockRange(start: number, endExclusive: number) {
+    return this.get(`/${this.network}/blocks?start=${start}&end=${endExclusive}`);
+  }
+
+  async isTransitionInputSpent(inputId: string) {
+    try {
+      await this.get(`/${this.network}/find/transitionID/${encodeURIComponent(inputId)}`);
+      return true;
+    } catch (error) {
+      if (error instanceof Error && /failed with 404\b/.test(error.message)) return false;
+      throw error;
+    }
+  }
+
   transaction(transactionId: string) {
     return this.get(`/${this.network}/transaction/${encodeURIComponent(transactionId)}`);
   }

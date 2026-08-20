@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "defaultNetwork": "testnet",
+  "networks": {
+    "testnet": {
+      "rpcUrl": "https://api.explorer.provable.com/v1",
+      "priorityFees": "0",
+      "contracts": {
+        "payroll": {
+          "programId": "payroll_private_v2.aleo",
+          "deployment": {
+            "transactionId": "at1rtdprqptlqtcyjghdpjpzdnqmkaeyyzafc5g00u8jpnf7qxqxgfq0sk2s2",
+            "blockHeight": 17825138,
+            "deployedAt": "2026-07-09T08:41:16.058Z"
+          }
+        },
+        "mockToken": {
+          "programId": "mock_token.aleo",
+          "deployment": {
+            "transactionId": "at1376ha0gcasg8ajz67evw5r2ge8pejpg8udjp55empnzw0z5fauqstgcttu",
+            "deployedAt": "2026-07-09T06:11:52.302Z"
+          }
+        }
+      }
+    }
+  }
+}

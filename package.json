@@ -5,16 +5,22 @@
   "private": true,
   "type": "module",
   "bin": {
-    "pactpay-aleo-mcp": "src/index.ts"
+    "pactpay-aleo-mcp": "dist/index.js",
+    "pactpay-aleo": "dist/cli.js"
   },
   "scripts": {
-    "start": "node --experimental-strip-types src/index.ts"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "cli": "node dist/cli.js",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.18.0"
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "@provablehq/sdk": "^0.11.6"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.2"
   },
   "engines": {
     "node": ">=22"

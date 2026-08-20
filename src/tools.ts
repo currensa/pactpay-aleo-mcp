@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AleoClient } from "./aleo-client.ts";
-import { DEFAULTS, redact } from "./common.ts";
+import { DEFAULTS } from "./common.ts";
 import {
   buildDepositTx,
   buildEscrowWithdrawTx,
@@ -11,13 +11,11 @@ import {
   randomField
 } from "./builders.ts";
 import {
-  leoBuild,
   leoDecryptRecord,
-  leoDeploy,
   leoExecute,
-  leoNewAccount,
-  leoTest
+  leoNewAccount
 } from "./leo.ts";
+import { scanUnspentPayrollRecords } from "./records.ts";
 
 type ToolReturn = {
   content: Array<{ type: "text"; text: string }>;
@@ -152,6 +150,31 @@ export function registerTools(server: McpServer, client: AleoClient): void {
       textResult(() => buildEscrowWithdrawTx(noteRecord, amount, payoutTo))
   );
 
+  const scanRangeSchema = {
+    privateKey: z.string().describe("Aleo private key used locally to discover owned, unspent records"),
+    startHeight: z.number().int().nonnegative().optional().describe("First block to scan; defaults to the last maxBlocks blocks"),
+    endHeight: z.number().int().nonnegative().optional().describe("Last block to scan; defaults to the latest block"),
+    maxBlocks: z.number().int().min(1).max(10_000).optional().describe("Range safety limit; defaults to 1000")
+  };
+
+  server.tool(
+    "scan_deposit_vaults",
+    "Scan a bounded block range for unspent DepositVault records owned by the supplied private key.",
+    scanRangeSchema,
+    async ({ privateKey, startHeight, endHeight, maxBlocks }) => textResult(() =>
+      scanUnspentPayrollRecords(client, { privateKey, kind: "DepositVault", startHeight, endHeight, maxBlocks })
+    )
+  );
+
+  server.tool(
+    "scan_payroll_notes",
+    "Scan a bounded block range for unspent PayrollNote records owned by the supplied private key.",
+    scanRangeSchema,
+    async ({ privateKey, startHeight, endHeight, maxBlocks }) => textResult(() =>
+      scanUnspentPayrollRecords(client, { privateKey, kind: "PayrollNote", startHeight, endHeight, maxBlocks })
+    )
+  );
+
   // ── Local cryptography (requires leo on PATH) ───────────────────────────
 
   server.tool("random_field", "Generate a random Leo field element (no leo required).", async () =>
@@ -172,7 +195,7 @@ export function registerTools(server: McpServer, client: AleoClient): void {
     async ({ ciphertext, key }) => textResult(() => leoDecryptRecord(ciphertext, key))
   );
 
-  // ── Sign and broadcast (requires leo + private key + project path) ──────
+  // Sign and broadcast (requires leo + private key)
 
   server.tool(
     "execute",
@@ -180,40 +203,10 @@ export function registerTools(server: McpServer, client: AleoClient): void {
     {
       builtTx: z.object(builtTxSchema),
       privateKey: z.string().describe("Aleo private key APrivateKey1..."),
-      projectPath: z.string().describe("Path to the pactpay-aleo project root (with contracts/)"),
       broadcast: z.boolean().optional().describe("true (default) broadcasts; false only prints")
     },
-    async ({ builtTx, privateKey, projectPath, broadcast }) =>
-      textResult(() => leoExecute(builtTx, { privateKey, projectPath, broadcast }))
+    async ({ builtTx, privateKey, broadcast }) =>
+      textResult(() => leoExecute(builtTx, { privateKey, broadcast }))
   );
 
-  server.tool(
-    "compile",
-    "Compile Leo programs (requires leo + project path).",
-    {
-      target: z.enum(["mock", "payroll", "all"]),
-      projectPath: z.string().describe("Path to the pactpay-aleo project root")
-    },
-    async ({ target, projectPath }) => textResult(() => leoBuild(target, projectPath))
-  );
-
-  server.tool(
-    "test_contracts",
-    "Run Leo-native payroll tests (requires leo + project path).",
-    { projectPath: z.string().describe("Path to the pactpay-aleo project root") },
-    async ({ projectPath }) => textResult(() => leoTest(projectPath))
-  );
-
-  server.tool(
-    "deploy",
-    "Deploy a program via leo. broadcast=false (default) only prints the tx.",
-    {
-      target: z.enum(["mock", "payroll"]),
-      privateKey: z.string().describe("Aleo private key APrivateKey1..."),
-      projectPath: z.string().describe("Path to the pactpay-aleo project root"),
-      broadcast: z.boolean().optional()
-    },
-    async ({ target, privateKey, projectPath, broadcast }) =>
-      textResult(() => leoDeploy(target, { privateKey, projectPath, broadcast }))
-  );
 }

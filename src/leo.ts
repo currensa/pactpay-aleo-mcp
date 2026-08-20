@@ -1,4 +1,4 @@
-import { DEFAULTS, findTransactionId, resolveContractPath, runLeo } from "./common.ts";
+import { DEFAULTS, findTransactionId, runLeo } from "./common.ts";
 import type { BuiltTransaction } from "./builders.ts";
 
 function networkArgs(network?: string, endpoint?: string): string[] {
@@ -8,17 +8,20 @@ function networkArgs(network?: string, endpoint?: string): string[] {
   ];
 }
 
-function shortNameForProgram(programId: string): "mock" | "payroll" {
-  if (programId.includes("payroll")) return "payroll";
-  if (programId.includes("mock_token")) return "mock";
-  throw new Error(`Cannot resolve contract for "${programId}". Expected payroll or mock_token.`);
+function networkOnlyArgs(network?: string): string[] {
+  return ["--network", network || DEFAULTS.network];
+}
+
+function assertSupportedProgram(programId: string): void {
+  if (programId !== DEFAULTS.payrollProgram && programId !== DEFAULTS.mockTokenProgram) {
+    throw new Error(`Unsupported program "${programId}".`);
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export type ExecuteOpts = {
   privateKey: string;
-  projectPath: string;
   broadcast?: boolean;
   network?: string;
   endpoint?: string;
@@ -33,22 +36,28 @@ export type ExecuteResult = {
   output: string;
 };
 
-export function leoExecute(tx: BuiltTransaction, opts: ExecuteOpts): ExecuteResult {
-  const shortName = shortNameForProgram(tx.program);
+export function leoExecuteArgs(tx: BuiltTransaction, opts: ExecuteOpts): string[] {
+  assertSupportedProgram(tx.program);
   const broadcast = opts.broadcast ?? true;
-  const args = [
+  return [
     "execute",
-    tx.transition,
+    `${tx.program}::${tx.transition}`,
     ...tx.args,
-    "--path", resolveContractPath(opts.projectPath, shortName),
+    "--no-local",
+    ...(tx.imports?.length ? ["--with", tx.imports.join(",")] : []),
     ...networkArgs(opts.network, opts.endpoint),
     "--private-key", opts.privateKey,
     "--priority-fees", opts.priorityFees || DEFAULTS.priorityFees,
     "--yes",
     broadcast ? "--broadcast" : "--print"
   ];
+}
 
-  const { combined } = runLeo(args, opts.projectPath);
+export function leoExecute(tx: BuiltTransaction, opts: ExecuteOpts): ExecuteResult {
+  const broadcast = opts.broadcast ?? true;
+  const args = leoExecuteArgs(tx, opts);
+
+  const { combined } = runLeo(args);
   return {
     transactionId: findTransactionId(combined),
     broadcast,
@@ -58,65 +67,15 @@ export function leoExecute(tx: BuiltTransaction, opts: ExecuteOpts): ExecuteResu
   };
 }
 
-export type DeployOpts = {
-  privateKey: string;
-  projectPath: string;
-  broadcast?: boolean;
-  network?: string;
-  endpoint?: string;
-  priorityFees?: string;
-};
-
-export type DeployResult = {
-  transactionId: string | null;
-  broadcast: boolean;
-  target: string;
-  output: string;
-};
-
-export function leoDeploy(target: "mock" | "payroll", opts: DeployOpts): DeployResult {
-  const broadcast = opts.broadcast ?? false;
-  const args = [
-    "deploy",
-    "--path", resolveContractPath(opts.projectPath, target),
-    ...networkArgs(opts.network, opts.endpoint),
-    "--private-key", opts.privateKey,
-    "--priority-fees", opts.priorityFees || DEFAULTS.priorityFees,
-    "--yes",
-    broadcast ? "--broadcast" : "--print"
-  ];
-
-  const { combined } = runLeo(args, opts.projectPath);
-  return {
-    transactionId: findTransactionId(combined),
-    broadcast,
-    target,
-    output: combined
-  };
-}
-
-export function leoBuild(target: "mock" | "payroll" | "all", projectPath: string): string {
-  const targets = target === "all" ? (["mock", "payroll"] as const) : [target];
-  const outputs: string[] = [];
-  for (const item of targets) {
-    outputs.push(runLeo(["build", "--path", resolveContractPath(projectPath, item)], projectPath).stdout.trim());
-  }
-  return outputs.join("\n\n").trim();
-}
-
-export function leoTest(projectPath: string): string {
-  return runLeo(["test", "--path", resolveContractPath(projectPath, "payroll")], projectPath).stdout.trim();
-}
-
 export function leoNewAccount(network?: string, endpoint?: string): string {
   return runLeo(["account", "new", ...networkArgs(network, endpoint)]).combined;
 }
 
-export function leoDecryptRecord(ciphertext: string, key: string, network?: string, endpoint?: string): string {
+export function leoDecryptRecord(ciphertext: string, key: string, network?: string): string {
   return runLeo([
     "account", "decrypt",
     "--ciphertext", ciphertext,
     "-k", key,
-    ...networkArgs(network, endpoint)
+    ...networkOnlyArgs(network)
   ]).combined;
 }
